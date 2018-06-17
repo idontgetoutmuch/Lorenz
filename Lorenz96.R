@@ -1,11 +1,9 @@
-### This demo shows how to perform filtering on a simple
-### synthetic dataset using libbi.
-model_file_name <- "/Users/dom/Lorenz96/LorenzGenerate.bi"
+library('rbi')
+library(ggplot2)
 
-# assign model variable
+model_file_name <- "LorenzGenerate.bi"
+
 Lorenz <- bi_model(model_file_name)
-# look at the model
-Lorenz
 
 T <- 0.01
 nObs <- 100
@@ -17,6 +15,9 @@ synthetic_dataset <- bi_generate_dataset(end_time=T, model=Lorenz,
                                          noutputs = nObs)
 
 synthetic_data <- bi_read(synthetic_dataset)
+
+## We can plot some of the data to check that the results behave as
+## expected
 synthetic_df <- as.data.frame(synthetic_data)
 
 ggplot(synthetic_df, aes(x=synthetic_df$X.value, y=synthetic_df$Y.value)) +
@@ -27,26 +28,20 @@ ggplot(synthetic_df, aes(x=synthetic_df$X.value, y=synthetic_df$Y.value)) +
     xlab("X") +
     ylab("Y")
 
+## Now add some noise to the generated data
 set.seed(42)
 l <- length(synthetic_data$X$value)
 synthetic_data$X$value <- rnorm(n=l, mean = synthetic_data$X$value, sd = 0.1)
 synthetic_data$Y$value <- rnorm(n=l, mean = synthetic_data$Y$value, sd = 0.1)
 synthetic_data$Z$value <- rnorm(n=l, mean = synthetic_data$Z$value, sd = 0.1)
 
-model_file_name_infer <- "/Users/dom/Lorenz96/LorenzInfer.bi"
 
-# assign model variable
+model_file_name_infer <- "LorenzInfer.bi"
+
 LorenzInfer <- bi_model(model_file_name_infer)
-# look at the model
-LorenzInfer
-# Settings
-bi_object <- libbi(model=LorenzInfer)
-bi_object
 
-# Once happy with the settings, launch bi.
 bi_object <- filter(bi_object, nparticles = 8192, nthreads = 1, end_time = T, noutputs = nObs, obs = synthetic_dataset, init = init_parameters)
 
-# It can be a good idea to look at the result file
 bi_file_summary(bi_object$output_file_name)
 bi_object
 summary(bi_object)
