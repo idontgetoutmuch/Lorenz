@@ -1,4 +1,4 @@
-model Lorenz {
+model LorenzInfer {
   const rho = 45.92
   const beta = 4
 
@@ -28,6 +28,6 @@ model Lorenz {
   }
 
   sub observation {
-    X_obs ~ log_normal(log(X), 0.2)
+    X_obs ~ log_normal(X, 0.2)
   }
 }

@@ -1,0 +1,121 @@
+#+OPTIONS: toc:nil
+#+OPTIONS: num:nil
+
+#+BEGIN_SRC emacs-lisp :exports none
+;; make org mode allow eval of some langs
+(org-babel-do-load-languages
+ 'org-babel-load-languages
+ '((emacs-lisp . t)
+   (haskell . t)
+   (R . t)))
+#+END_SRC
+
+* Estimating Parameters in Chaotic Systems
+
+** Introduction
+
+#+begin_src R :colnames yes :exports none :session R-session
+library('rbi')
+library(ggplot2)
+#+end_src
+
+Suppose we have a dynamical system for which we wish to estimate the
+parameters. One way of doing this is to use something a Monte Carlo
+method. But if the system is chaotic then this approach is highly
+unlikely to work as the small changes in the proposals for the
+parameters will result in large changes in the path.
+
+Here's a [[https://en.wikipedia.org/wiki/Lorenz_system][well-known chaotic dynamical system]]:
+
+\begin{align}
+\frac{\mathrm{d}x}{\mathrm{d}t} &= \alpha (y - x), \\
+\frac{\mathrm{d}y}{\mathrm{d}t} &= x (\rho - z) - y, \\
+\frac{\mathrm{d}z}{\mathrm{d}t} &= x y - \beta z.
+\end{align}
+
+And here is its representation in [[http://libbi.org][libbi]] together with some
+instructions to generate noisy values of the \(x\) variable.
+
+#+INCLUDE: "LorenzGenerate.bi" src
+
+Let's wrap it in some [[https://www.r-project.org][R]]:
+
+#+begin_src R :colnames yes :session R-session :exports code
+model_file_name <- "LorenzGenerate.bi"
+Lorenz <- bi_model(model_file_name)
+
+T <- 10.0
+nObs <- 100
+init_parameters <- list(X = 1, Y = 1, Z = 1)
+
+synthetic_dataset <- bi_generate_dataset(end_time=T, model=Lorenz,
+                                         init=init_parameters,
+                                         noutputs = nObs)
+
+synthetic_data <- bi_read(synthetic_dataset)
+synthetic_df <- as.data.frame(synthetic_data)
+tail(synthetic_df)
+#+end_src
+
+#+begin_src R :colnames yes :session R-session :exports none
+model_file_name1 <- "LorenzGenerate1.bi"
+Lorenz1 <- bi_model(model_file_name1)
+
+synthetic_dataset1 <- bi_generate_dataset(end_time=T, model=Lorenz1,
+                                          init=init_parameters,
+                                          noutputs = nObs)
+
+synthetic_data1 <- bi_read(synthetic_dataset1)
+synthetic_df1 <- as.data.frame(synthetic_data1)
+tail(synthetic_df1)
+#+end_src
+
+Now we can look at the path for a system with two different values of
+\(\alpha\) and see that the paths track each other before undergoing
+qualitatively different behaviour.
+
+#+begin_src R :colnames yes :session R-session :exports none
+p <- ggplot(synthetic_df, aes(X.time)) +
+    geom_path(aes(y = X.value, colour="alpha 16.0")) +
+    geom_path(aes(y = synthetic_df1$X_obs.value, colour="alpha 16.1")) +
+    theme(legend.position="bottom") +
+    ggtitle("Lorenz") +
+    theme(plot.title = element_text(hjust = 0.5)) +
+    xlab("Time") +
+    ylab("X Value")
+ggsave(filename = "diagrams/xpath.svg", plot = p)
+print("ok")
+#+end_src
+
+#+BEGIN_center
+#+ATTR_LATEX: :height 0.85\textheight
+[[./diagrams/xpath.svg]]
+#+END_center
+
+** Parameters as State
+
+Alternatively we can model the parameter as part of the state and
+assume that it undergoes Brownian Motion. This seems reasonable: the
+further we go into the future, the less certain we are about its
+value. An improvement might to model it as an Ornstein-Uhlenbeck
+process which is mean-reverting - after all we don't expect the
+parameter to take on arbitrarily large or small values but
+let's learn to walk before we learn to run.
+
+Since we expect our parameter to positive let's model it as geometric
+Brownian Motion.
+
+\begin{equation}
+\mathrm{d}\alpha = \alpha\sigma\mathrm{d}W_t
+\end{equation}
+
+By It\^{o} we have
+
+\begin{equation}
+\mathrm{d}(\log\alpha) = -\frac{\sigma^2}{2}\mathrm{d}t + \sigma\mathrm{d}W_t
+\end{equation}
+
+We can model this in libbi as:
+
+#+INCLUDE: "LorenzState.bi" src
+

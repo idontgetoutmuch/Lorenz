@@ -1,7 +1,7 @@
 model Lorenz {
   const rho = 45.92
   const beta = 4.0
-  const alpha = 16.0
+  const alpha = 16.1
 
   state X, Y, Z
   obs X_obs
